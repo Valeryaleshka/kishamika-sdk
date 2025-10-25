@@ -73,12 +73,40 @@ function gitOperations(newVersion, versionType) {
     execSync(`git tag v${newVersion}`, { stdio: 'inherit' });
 }
 
+function publishToNpm() {
+    try {
+        printColor('📦 Publishing to npm...', colors.BLUE);
+        execSync('npm publish', { stdio: 'inherit' });
+        printColor('✅ Successfully published to npm!', colors.GREEN);
+        return true;
+    } catch (error) {
+        printColor('❌ Failed to publish to npm', colors.RED);
+        return false;
+    }
+}
+
+function isLoggedInToNpm() {
+    try {
+        execSync('npm whoami', { stdio: 'pipe' });
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
+
 async function main() {
     printBanner();
 
     // Check if package.json exists
     if (!fs.existsSync('package.json')) {
         printColor('❌ package.json not found!', colors.RED);
+        process.exit(1);
+    }
+
+    // Check npm login status
+    if (!isLoggedInToNpm()) {
+        printColor('❌ You are not logged in to npm!', colors.RED);
+        printColor('Run: npm login', colors.YELLOW);
         process.exit(1);
     }
 
@@ -153,26 +181,80 @@ async function main() {
     gitOperations(newVersion, versionResponse.versionType);
     printColor(`✅ Git tag v${newVersion} created`, colors.GREEN);
 
-    console.log('');
-    printColor('🎉 Version bump completed successfully!', colors.GREEN);
-    console.log('');
-
-    // Ask to push
-    const pushResponse = await prompts({
-        type: 'confirm',
-        name: 'value',
-        message: 'Push to git now?',
-        initial: true
+    // Ask for publishing options
+    const publishResponse = await prompts({
+        type: 'select',
+        name: 'action',
+        message: 'Select publishing action:',
+        choices: [
+            {
+                title: `${colors.GREEN}Publish to npm and push to git${colors.NC}`,
+                description: 'Full automated release',
+                value: 'publish-and-push'
+            },
+            {
+                title: `${colors.BLUE}Push to git only${colors.NC}`,
+                description: 'Skip npm publishing',
+                value: 'push-only'
+            },
+            {
+                title: `${colors.YELLOW}Skip both${colors.NC}`,
+                description: 'Manual publishing later',
+                value: 'skip'
+            }
+        ],
+        initial: 0
     });
 
-    if (pushResponse.value) {
-        execSync('git push origin main --tags', { stdio: 'inherit' });
-        printColor('✅ Pushed to git repository', colors.GREEN);
+    let publishedToNpm = false;
+    let pushedToGit = false;
+
+    switch (publishResponse.action) {
+        case 'publish-and-push':
+            // Publish to npm
+            publishedToNpm = publishToNpm();
+
+            // Push to git
+            printColor('🚀 Pushing to git...', colors.BLUE);
+            execSync('git push origin main --tags', { stdio: 'inherit' });
+            pushedToGit = true;
+            printColor('✅ Pushed to git repository', colors.GREEN);
+            break;
+
+        case 'push-only':
+            // Push to git only
+            printColor('🚀 Pushing to git...', colors.BLUE);
+            execSync('git push origin main --tags', { stdio: 'inherit' });
+            pushedToGit = true;
+            printColor('✅ Pushed to git repository', colors.GREEN);
+            break;
+
+        case 'skip':
+            printColor('⏭️  Skipping publishing', colors.YELLOW);
+            break;
     }
 
     console.log('');
-    printColor('Next steps:', colors.CYAN);
-    console.log('Publish to npm: npm publish');
+    printColor('🎉 Release completed successfully!', colors.GREEN);
+    console.log('');
+
+    // Summary
+    printColor('Release Summary:', colors.CYAN);
+    console.log(`📦 Version: ${newVersion}`);
+    console.log(`🔖 Git Tag: v${newVersion}`);
+    console.log(`📚 NPM: ${publishedToNpm ? '✅ Published' : '⏭️  Skipped'}`);
+    console.log(`🐙 Git: ${pushedToGit ? '✅ Pushed' : '⏭️  Skipped'}`);
+    console.log('');
+
+    if (!publishedToNpm) {
+        printColor('To publish manually later:', colors.YELLOW);
+        console.log('npm publish');
+    }
+
+    if (!pushedToGit) {
+        printColor('To push manually later:', colors.YELLOW);
+        console.log('git push origin main --tags');
+    }
 }
 
 main().catch(console.error);
