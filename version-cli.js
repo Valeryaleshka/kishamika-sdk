@@ -1,10 +1,7 @@
-#!/usr/bin/env node
-
 import fs from 'fs';
 import { execSync } from 'child_process';
 import prompts from 'prompts';
 
-// Colors for console
 const colors = {
     RED: '\x1b[91m',
     GREEN: '\x1b[92m',
@@ -59,7 +56,7 @@ function gitOperations(newVersion, versionType) {
     let commitMessage;
     switch (versionType) {
         case 'major':
-            commitMessage = `chore: release v${newVersion}\n\nBREAKING CHANGE: major version release`;
+            commitMessage = `core: release v${newVersion}\n\nBREAKING CHANGE: major version release`;
             break;
         case 'minor':
             commitMessage = `feat: release v${newVersion}`;
@@ -97,20 +94,17 @@ function isLoggedInToNpm() {
 async function main() {
     printBanner();
 
-    // Check if package.json exists
     if (!fs.existsSync('package.json')) {
         printColor('❌ package.json not found!', colors.RED);
         process.exit(1);
     }
 
-    // Check npm login status
     if (!isLoggedInToNpm()) {
         printColor('❌ You are not logged in to npm!', colors.RED);
         printColor('Run: npm login', colors.YELLOW);
         process.exit(1);
     }
 
-    // Check for uncommitted changes
     try {
         const gitStatus = execSync('git status --porcelain').toString().trim();
         if (gitStatus) {
