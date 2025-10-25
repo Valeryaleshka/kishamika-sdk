@@ -2,6 +2,7 @@
 
 import fs from 'fs';
 import { execSync } from 'child_process';
+import readline from 'readline';
 
 // Colors for console
 const colors = {
@@ -91,7 +92,21 @@ function showPreview(current, type) {
     }
 }
 
-function main() {
+async function askQuestion(question) {
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
+
+    return new Promise((resolve) => {
+        rl.question(question, (answer) => {
+            rl.close();
+            resolve(answer);
+        });
+    });
+}
+
+async function main() {
     printBanner();
 
     // Check if package.json exists
@@ -109,90 +124,79 @@ function main() {
             execSync('git status --short', { stdio: 'inherit' });
             console.log('');
 
-            const readline = require('readline').createInterface({
-                input: process.stdin,
-                output: process.stdout
-            });
-
-            readline.question('Continue anyway? (y/n): ', (answer) => {
-                readline.close();
-                if (!answer.match(/^[Yy]$/)) {
-                    process.exit(1);
-                }
-                continueProcess();
-            });
-        } else {
-            continueProcess();
+            const answer = await askQuestion('Continue anyway? (y/n): ');
+            if (!answer.match(/^[Yy]$/)) {
+                process.exit(1);
+            }
         }
     } catch (error) {
+        printColor(error.message, colors.RED);
         printColor('❌ Git not available or not a git repository', colors.RED);
         process.exit(1);
     }
 
-    function continueProcess() {
-        const currentVersion = getCurrentVersion();
-        printColor(`Current version: ${currentVersion}`, colors.GREEN);
-        console.log('');
+    await continueProcess();
+}
 
-        printColor('Select version bump type:', colors.BLUE);
-        console.log('');
+async function continueProcess() {
+    const currentVersion = getCurrentVersion();
+    printColor(`Current version: ${currentVersion}`, colors.GREEN);
+    console.log('');
 
-        console.log(colors.PURPLE + '1) MAJOR version' + colors.NC);
-        showPreview(currentVersion, 'major');
-        console.log('');
+    printColor('Select version bump type:', colors.BLUE);
+    console.log('');
 
-        console.log(colors.BLUE + '2) MINOR version' + colors.NC);
-        showPreview(currentVersion, 'minor');
-        console.log('');
+    console.log(colors.PURPLE + '1) MAJOR version' + colors.NC);
+    showPreview(currentVersion, 'major');
+    console.log('');
 
-        console.log(colors.YELLOW + '3) PATCH version' + colors.NC);
-        showPreview(currentVersion, 'patch');
-        console.log('');
+    console.log(colors.BLUE + '2) MINOR version' + colors.NC);
+    showPreview(currentVersion, 'minor');
+    console.log('');
 
-        const readline = require('readline').createInterface({
-            input: process.stdin,
-            output: process.stdout
-        });
+    console.log(colors.YELLOW + '3) PATCH version' + colors.NC);
+    showPreview(currentVersion, 'patch');
+    console.log('');
 
-        function askChoice() {
-            readline.question('Enter your choice (1-3): ', (choice) => {
-                let versionType;
-                switch (choice) {
-                    case '1': versionType = 'major'; break;
-                    case '2': versionType = 'minor'; break;
-                    case '3': versionType = 'patch'; break;
-                    default:
-                        printColor('❌ Invalid choice. Please enter 1, 2, or 3.', colors.RED);
-                        askChoice();
-                        return;
-                }
+    let versionType;
+    let choice;
 
-                readline.close();
-
-                const newVersion = calculateNewVersion(currentVersion, versionType);
-
-                console.log('');
-                printColor(`Updating to version: ${newVersion}`, colors.CYAN);
-
-                updatePackageVersion(newVersion);
-                printColor('✅ package.json updated', colors.GREEN);
-
-                printColor('Creating git commit and tag...', colors.BLUE);
-                gitOperations(newVersion, versionType);
-                printColor(`✅ Git tag v${newVersion} created`, colors.GREEN);
-
-                console.log('');
-                printColor('🎉 Version bump completed successfully!', colors.GREEN);
-                console.log('');
-
-                printColor('Next steps:', colors.CYAN);
-                console.log('1) Push to git:    git push origin main --tags');
-                console.log('2) Publish to npm: npm publish');
-            });
+    do {
+        choice = await askQuestion('Enter your choice (1-3): ');
+        switch (choice) {
+            case '1': versionType = 'major'; break;
+            case '2': versionType = 'minor'; break;
+            case '3': versionType = 'patch'; break;
+            default:
+                printColor('❌ Invalid choice. Please enter 1, 2, or 3.', colors.RED);
         }
+    } while (!versionType);
 
-        askChoice();
+    const newVersion = calculateNewVersion(currentVersion, versionType);
+
+    console.log('');
+    printColor(`Updating to version: ${newVersion}`, colors.CYAN);
+
+    updatePackageVersion(newVersion);
+    printColor('✅ package.json updated', colors.GREEN);
+
+    printColor('Creating git commit and tag...', colors.BLUE);
+    gitOperations(newVersion, versionType);
+    printColor(`✅ Git tag v${newVersion} created`, colors.GREEN);
+
+    console.log('');
+    printColor('🎉 Version bump completed successfully!', colors.GREEN);
+    console.log('');
+
+    printColor('Next steps:', colors.CYAN);
+    console.log('1) Push to git:    git push origin main --tags');
+    console.log('2) Publish to npm: npm publish');
+
+    const pushChoice = await askQuestion('Push to git now? (y/n): ');
+    if (pushChoice.match(/^[Yy]$/)) {
+        execSync('git push origin main --tags', { stdio: 'inherit' });
+        printColor('✅ Pushed to git repository', colors.GREEN);
     }
 }
 
-main();
+main().catch(console.error);
