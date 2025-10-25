@@ -2,7 +2,7 @@
 
 import fs from 'fs';
 import { execSync } from 'child_process';
-import readline from 'readline';
+import prompts from 'prompts';
 
 // Colors for console
 const colors = {
@@ -73,39 +73,6 @@ function gitOperations(newVersion, versionType) {
     execSync(`git tag v${newVersion}`, { stdio: 'inherit' });
 }
 
-function showPreview(current, type) {
-    const newVersion = calculateNewVersion(current, type);
-
-    switch (type) {
-        case 'major':
-            console.log(`   ${current} → ${colors.GREEN}${newVersion}${colors.NC}`);
-            console.log(`   ${colors.RED}⚠️  Breaking changes${colors.NC}`);
-            break;
-        case 'minor':
-            console.log(`   ${current} → ${colors.GREEN}${newVersion}${colors.NC}`);
-            console.log(`   ${colors.BLUE}✨ New features${colors.NC}`);
-            break;
-        case 'patch':
-            console.log(`   ${current} → ${colors.GREEN}${newVersion}${colors.NC}`);
-            console.log(`   ${colors.YELLOW}🐛 Bug fixes${colors.NC}`);
-            break;
-    }
-}
-
-async function askQuestion(question) {
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
-
-    return new Promise((resolve) => {
-        rl.question(question, (answer) => {
-            rl.close();
-            resolve(answer);
-        });
-    });
-}
-
 async function main() {
     printBanner();
 
@@ -124,55 +91,57 @@ async function main() {
             execSync('git status --short', { stdio: 'inherit' });
             console.log('');
 
-            const answer = await askQuestion('Continue anyway? (y/n): ');
-            if (!answer.match(/^[Yy]$/)) {
+            const proceed = await prompts({
+                type: 'confirm',
+                name: 'value',
+                message: 'Continue anyway?',
+                initial: false
+            });
+
+            if (!proceed.value) {
                 process.exit(1);
             }
         }
     } catch (error) {
-        printColor(error.message, colors.RED);
         printColor('❌ Git not available or not a git repository', colors.RED);
         process.exit(1);
     }
 
-    await continueProcess();
-}
-
-async function continueProcess() {
     const currentVersion = getCurrentVersion();
     printColor(`Current version: ${currentVersion}`, colors.GREEN);
     console.log('');
 
-    printColor('Select version bump type:', colors.BLUE);
-    console.log('');
+    // Version selection with arrow keys
+    const versionResponse = await prompts({
+        type: 'select',
+        name: 'versionType',
+        message: 'Select version bump type:',
+        choices: [
+            {
+                title: `${colors.PURPLE}MAJOR${colors.NC} (breaking changes)    ${currentVersion} → ${calculateNewVersion(currentVersion, 'major')}`,
+                description: `${colors.RED}Breaking changes${colors.NC}`,
+                value: 'major'
+            },
+            {
+                title: `${colors.BLUE}MINOR${colors.NC} (new features)       ${currentVersion} → ${calculateNewVersion(currentVersion, 'minor')}`,
+                description: `${colors.BLUE}New features${colors.NC}`,
+                value: 'minor'
+            },
+            {
+                title: `${colors.YELLOW}PATCH${colors.NC} (bug fixes)         ${currentVersion} → ${calculateNewVersion(currentVersion, 'patch')}`,
+                description: `${colors.YELLOW}Bug fixes${colors.NC}`,
+                value: 'patch'
+            }
+        ],
+        initial: 2
+    });
 
-    console.log(colors.PURPLE + '1) MAJOR version' + colors.NC);
-    showPreview(currentVersion, 'major');
-    console.log('');
+    if (!versionResponse.versionType) {
+        printColor('❌ Version selection cancelled', colors.RED);
+        process.exit(1);
+    }
 
-    console.log(colors.BLUE + '2) MINOR version' + colors.NC);
-    showPreview(currentVersion, 'minor');
-    console.log('');
-
-    console.log(colors.YELLOW + '3) PATCH version' + colors.NC);
-    showPreview(currentVersion, 'patch');
-    console.log('');
-
-    let versionType;
-    let choice;
-
-    do {
-        choice = await askQuestion('Enter your choice (1-3): ');
-        switch (choice) {
-            case '1': versionType = 'major'; break;
-            case '2': versionType = 'minor'; break;
-            case '3': versionType = 'patch'; break;
-            default:
-                printColor('❌ Invalid choice. Please enter 1, 2, or 3.', colors.RED);
-        }
-    } while (!versionType);
-
-    const newVersion = calculateNewVersion(currentVersion, versionType);
+    const newVersion = calculateNewVersion(currentVersion, versionResponse.versionType);
 
     console.log('');
     printColor(`Updating to version: ${newVersion}`, colors.CYAN);
@@ -181,22 +150,29 @@ async function continueProcess() {
     printColor('✅ package.json updated', colors.GREEN);
 
     printColor('Creating git commit and tag...', colors.BLUE);
-    gitOperations(newVersion, versionType);
+    gitOperations(newVersion, versionResponse.versionType);
     printColor(`✅ Git tag v${newVersion} created`, colors.GREEN);
 
     console.log('');
     printColor('🎉 Version bump completed successfully!', colors.GREEN);
     console.log('');
 
-    printColor('Next steps:', colors.CYAN);
-    console.log('1) Push to git:    git push origin main --tags');
-    console.log('2) Publish to npm: npm publish');
+    // Ask to push
+    const pushResponse = await prompts({
+        type: 'confirm',
+        name: 'value',
+        message: 'Push to git now?',
+        initial: true
+    });
 
-    const pushChoice = await askQuestion('Push to git now? (y/n): ');
-    if (pushChoice.match(/^[Yy]$/)) {
+    if (pushResponse.value) {
         execSync('git push origin main --tags', { stdio: 'inherit' });
         printColor('✅ Pushed to git repository', colors.GREEN);
     }
+
+    console.log('');
+    printColor('Next steps:', colors.CYAN);
+    console.log('Publish to npm: npm publish');
 }
 
 main().catch(console.error);
