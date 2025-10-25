@@ -2,6 +2,10 @@
   "name": "kikamisha-sdk",
   "version": "0.0.1",
   "description": "kishamika SDK shared",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Valeryaleshka/kishamika-sdk.git"
+  },
   "license": "MIT",
   "author": "Valery Aleshka <valeryaleshka@gmail.com>",
   "type": "module",
