@@ -1,3 +1,3 @@
-const print = () => { console.log('Hello World')}
+const printKika = () => { console.log('Hello World')}
 
-module.exports = print
+module.exports = printKika
