@@ -1,6 +1,6 @@
 {
   "name": "kikamisha-sdk",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "kishamika SDK shared",
   "repository": {
     "type": "git",
@@ -10,6 +10,13 @@
   "author": "Valery Aleshka <valeryaleshka@gmail.com>",
   "type": "module",
   "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./index.js",
+      "types": "./index.d.ts"
+    }
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   }
