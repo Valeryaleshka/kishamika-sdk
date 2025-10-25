@@ -1,6 +1,6 @@
 {
   "name": "kikamisha-sdk",
-  "version": "0.0.4",
+  "version": "0.1.0",
   "description": "kishamika SDK shared",
   "repository": {
     "type": "git",
@@ -9,15 +9,24 @@
   "license": "MIT",
   "author": "Valery Aleshka <valeryaleshka@gmail.com>",
   "type": "module",
-  "main": "index.js",
-  "types": "index.d.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./index.js",
-      "types": "./index.d.ts"
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
     }
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
   }
 }
