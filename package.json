@@ -20,7 +20,7 @@
       "import": "./dist/helpers/index.js",
       "types": "./dist/helpers/index.d.ts"
     },
-    "./styles": "./dist/styles/index.scss"
+    "./styles": "./dist/styles/index.less"
   },
   "files": [
     "dist",
